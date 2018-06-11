@@ -6,6 +6,7 @@
 from llxy import *
 from grib2r2c import crop_array
 import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 #
 dgrw=21. #45. #249.0   21 is ok for cmc 10 km grid
 nhem=1
@@ -50,22 +51,27 @@ for j in range(nj):
 	for i in range(ni):
 		fulla[j,i]=fullX[i]-fullY[j]
 #
-plt.contour(fullX,fullY,fulla,colors='k')
+cs1=plt.contour(fullX,fullY,fulla,colors='k')
+plt.clabel(cs1)
+del cs1
 #  draw grid axes
 plt.hold(True)
 plt.plot(fullX,np.zeros(fullX.size),'r')
 plt.plot(np.zeros(fullY.size),fullY,'b')
 #
-i1=650
+i1=250
 j1=200
-iwidth=100
-cropa=crop_array(fulla,j1,i1,iwidth,iwidth,yup=True,verbose=True)
+iwidth=350
+cropa=crop_array(fulla,j1,i1,iwidth,iwidth,yup=False,verbose=True)
 cropnj,cropni=cropa.shape
-cropX1=X1+(i1-1)
-cropY1=Y1+(j1-1)
+cropX1=X1+(j1-1)
+cropY1=Y1+(i1-1)
 cropX=np.arange(cropX1,cropX1+cropni,1)
 cropY=np.arange(cropY1,cropY1+cropnj,1)
 # overlay the subarray
-plt.contour(cropX,cropY,cropa,colors='g')
+cs2=plt.contour(cropX,cropY,cropa,colors='g')
+plt.clabel(cs2)
+plt.plot(cropX1,cropY1,'k+')
+plt.plot(cropX1+cropni,cropY1+cropnj,'k+')
 plt.show()
-
+# do it also with geography
