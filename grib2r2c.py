@@ -101,7 +101,7 @@ def get_grib (gribname,interval,crop,verbose=False):
 		print "i1,j1,iwidth:",i1,j1,iwidth
 		if verbose : print "latc,lonc,dum1,dum2,iwidth,ic,jc,i1,i2,j1,j2:\n",latc,lonc,dum1,dum2,iwidth,ic,jc,i1,j1
 		#
-		cbuf=crop_array(buf,j1,i1,iwidth,iwidth,yup=True,verbose=True)
+		cbuf=crop_array(buf,i1,j1,iwidth,iwidth,yflip=True,verbose=True)
 		#
 		#  must adjust these in gdict
 		# Ni Nj iNorthPole jNorthPole 
@@ -127,27 +127,52 @@ def get_grib (gribname,interval,crop,verbose=False):
 	#
 	return [gdict, saveit]
 #
-def crop_array(img,startx,starty_in,cropx,cropy,yup=False,verbose=False):
-    ny,nx = img.shape
+def crop_array(full,startx,starty_in,cropx,cropy,yflip=False,verbose=False,fullX=[],fullY=[]):
+    ny,nx = full.shape
     if verbose:
-        print "min,max,shape input:",np.min(img),np.max(img),"\n",img.shape
+        print "min,max,shape input:",np.min(full),np.max(full),"\n",full.shape
     #
-    if not yup:
+    if not yflip:
         starty=starty_in
         endy=min(starty+cropy,ny)
     else:
         starty=max(0,ny-1-(starty_in+cropy-1))
         endy=min(ny-1-(starty_in+cropy-1)+cropy,ny)
+    if verbose:
+    	  print "starty,endy:",starty,endy 	  
     if startx < 0 or starty < 0:
         print "starting point must not be negative. exit", startx, starty
         return
     if endy > ny:
         print "ending y point must not exceed y-size. exit", endy, ny
         return
-    crop=img[starty:endy,startx:min(startx+cropx,nx)]
+    crop=full[starty:endy,startx:min(startx+cropx,nx)]
+    #
     if verbose:
-        print "min,max,shape output:",np.min(crop),np.max(crop),"\n",crop.shape   
-    return crop
+    	print "min,max,shape output:",np.min(crop),np.max(crop),"\n",crop.shape   
+	 #
+    if len(fullX) * len(fullY) > 0:
+    	#X and Y are given for full array.  return also cropped X Y
+    	if fullX.size == nx:
+    		cropX=fullX[startx:startx+cropx]
+    	else:
+    		print "bad fullX provided.  size wrong:",fullX.size,"  quit"
+    		quit()
+
+    	if fullY.size == ny:
+    		cropY=fullY[starty:starty+cropy]
+    	else:
+    		print "bad fullY provided.  size wrong:",fullY.size,"  quit"
+    		quit()
+    	return crop,cropX,cropY
+    	#
+    else:
+    	return crop		
+#
+def structObj:
+	# to define a matlab-type dotted structure
+	# cf.: https://stackoverflow.com/questions/34075094/python-struct-like-matlab
+	return type('', (), {})()
 #
 def put_r2c(grib,r2cFile,writername,FrameNumber=1,doHeader=True,verbose=False):
 	ok=False

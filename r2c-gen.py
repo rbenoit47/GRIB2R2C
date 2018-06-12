@@ -7,6 +7,7 @@
 import numpy as np
 import glob
 import argparse
+import cPickle as pik
 from   grib2r2c import *
 #
 #
@@ -14,7 +15,7 @@ from   grib2r2c import *
 args = argparse.ArgumentParser(description='This python script converts grib2 data to the r2c format')
 args.add_argument('-var',dest='var',required=True,\
                   help='Variable to be extracted. Typically either PCP or TGL')
-args.add_argument('-dir',dest='dir',required=True,\
+args.add_argument('-indir',dest='indir',required=True,\
                   help='Directory path containing the input GRIB2 files')
 args.add_argument('-interval',dest='interval',required=False,\
                   default=3,\
@@ -43,14 +44,18 @@ args.add_argument('-contour',dest='contour',required=False,\
 args.add_argument('-r2cprefix',dest='r2cprefix',required=False,\
                   default='test',\
                   help='Prefix for name of the r2c file output .  Default is test')
+args.add_argument('-outdir',dest='outdir',required=False,\
+						default='.',\
+                  help='Directory path for the output r2c file.  Default is .')
 #
 args.parse_args(namespace=args)
 #
 var=args.var  # PCP or TGL
 interval=int(args.interval)  # number of hours between desired samples to be saved
-indir=args.dir
+indir=args.indir
 verbose=args.verbose
 r2cprefix=args.r2cprefix
+outdir=args.outdir
 crop={}
 crop['crop']=bool(args.crop)
 crop['lat']=float(args.lat)
@@ -67,10 +72,11 @@ if len(gribFiles) == 0:
 	print "no GRIB2 files found. quit"
 	quit()
 #
-r2cname=r2cprefix + "_" + var + ".r2c"   #"test_"
+r2cname=outdir + "/" + r2cprefix + "_" + var + ".r2c"   #"test_"
 r2cFile=open(r2cname,'w')
 r2cHeader=True
 iFile=1
+pickSave=False  #True
 #
 for gribFile in gribFiles:
 	[grib,saveit]=get_grib (gribFile,interval,crop,verbose)
@@ -85,6 +91,12 @@ for gribFile in gribFiles:
 			print ("paramerName:%s" % grib['parameterName']+'.')
 			print ("size of values in grib %d" % np.size(grib['values']))
 			print ("===================")
+		#
+		if pickSave:
+			pikfile=var+str(iFile)+".pickle"
+			pikf=open(pikfile,'wb')
+			pik.dump(grib['values'],pikf)
+			pikf.close()
 		#
 		ok=put_r2c(grib,r2cFile,'R Benoit',FrameNumber=iFile,doHeader=r2cHeader,verbose=verbose)
 		r2cHeader=False
