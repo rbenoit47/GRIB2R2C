@@ -14,7 +14,7 @@ from   grib2r2c import *
 #
 args = argparse.ArgumentParser(description='This python script converts grib2 data to the r2c format')
 args.add_argument('-var',dest='var',required=True,\
-                  help='Variable to be extracted. Typically either PCP or TGL')
+                  help='Variable to be extracted. Typically either PCP or TGL.')
 args.add_argument('-indir',dest='indir',required=True,\
                   help='Directory path containing the input GRIB2 files')
 args.add_argument('-interval',dest='interval',required=False,\
@@ -47,6 +47,10 @@ args.add_argument('-r2cprefix',dest='r2cprefix',required=False,\
 args.add_argument('-outdir',dest='outdir',required=False,\
 						default='.',\
                   help='Directory path for the output r2c file.  Default is .')
+args.add_argument('-LALO',dest='LALO',required=False,\
+						default=False,\
+                  help='Option to get lat-lon of the grib array points  Default is False')
+#  special case: LALO replaces record values by pairs of latitude longitude
 #
 args.parse_args(namespace=args)
 #
@@ -56,14 +60,14 @@ indir=args.indir
 verbose=args.verbose
 r2cprefix=args.r2cprefix
 outdir=args.outdir
-crop={}
-crop['crop']=bool(args.crop)
-crop['lat']=float(args.lat)
-crop['lon']=float(args.lon)
-crop['width']=float(args.width)
+crop=structObj() #{}
+crop.crop=bool(args.crop)
+crop.lat=float(args.lat)
+crop.lon=float(args.lon)
+crop.width=float(args.width)
+LALO=bool(args.LALO)
 #
-print "script arguments. \nvar:",var,"\ninterval:", interval, "\ndir:",indir,"\nverbose:",verbose,"\ncrop:",crop
-#print type(var), type(interval), type(indir)
+print "script arguments. \nvar:",var,"\ninterval:", interval, "\ndir:",indir,"\nverbose:",verbose,"\ncrop:",structPrint(crop,'crop')
 #
 gribFiles=sorted(glob.glob(indir+"*"+var+"*grib2"))
 #
@@ -72,24 +76,34 @@ if len(gribFiles) == 0:
 	print "no GRIB2 files found. quit"
 	quit()
 #
-r2cname=outdir + "/" + r2cprefix + "_" + var + ".r2c"   #"test_"
+if not LALO:
+	r2cname=outdir + "/" + r2cprefix + "_" + var + ".r2c"
+else:
+	r2cname=outdir + "/" + r2cprefix + "_" + "LALO" + ".r2c"
+#
 r2cFile=open(r2cname,'w')
 r2cHeader=True
 iFile=1
 pickSave=False  #True
 #
 for gribFile in gribFiles:
-	[grib,saveit]=get_grib (gribFile,interval,crop,verbose)
+	grib,saveit=get_grib (gribFile,interval,crop,LALO=LALO,verbose=verbose)
 	#
 	if saveit:
-		print ("data obtained from file %s" % grib['GribName'])
+		print ("data obtained from file %s" % grib.GribName)
 		if verbose:
 			print ("keys in grib dictionary")
 			print ("===================")
+			structPrint(grib,'grib')
+			"""
+			print "grib elements:\n",grib.__dict__,"\n"
+			print	"geo elements:\n",grib.geo.__dict__,"\n"
+
 			for key in grib.keys():
 				print (key)
-			print ("paramerName:%s" % grib['parameterName']+'.')
-			print ("size of values in grib %d" % np.size(grib['values']))
+			"""
+			print ("paramerName:%s" % grib.parameterName+'.')
+			print ("size of values in grib %d" % np.size(grib.values))
 			print ("===================")
 		#
 		if pickSave:

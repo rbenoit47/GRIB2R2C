@@ -42,6 +42,31 @@ def llfxy(x,y,d60,dgrw,nhem,lat0=60.0,verbose=False,radius=6.371e6):
 	#
 	return [dlat,dlon]
 #
+def llfxya(x,y,d60,dgrw,nhem,lat0=60.0,radius=6.371e6):
+	# array version of llfxy.  x and y are array as well returned lat lon
+	if nhem == 2:
+		print "llfxya.  nhem=2 not supported. breaking"
+		quit()
+	#
+	dgtord=np.pi/np.float64(180.0)
+	rdtodg=np.float64(180.0)/np.pi
+	a=np.float64(radius)   #6.371e6
+	re=(1+np.sin(dgtord*lat0))*a/d60
+	#
+	re2=re**2
+	#
+	xv,yv=np.meshgrid(x,y,indexing='ij')  #ij chosen to have x govern 1st dimension of xv yv
+	r2=np.square(xv)+np.square(yv)
+	ratio=np.divide(re2-r2,re2+r2)
+	dlata=np.arcsin(ratio)*rdtodg
+	dlona=np.arctan2(yv,xv)*rdtodg - dgrw
+	#  wrap lon to +-180
+	dlona180=np.fmod(dlona+180.0,360.0)-180.0
+	#
+	#if verbose : print "llfxy. ,x,y,dlat,dlon,d60,dgrw,nhem,lat0:",x,y,dlat,dlon,d60,dgrw,nhem,lat0
+	#
+	return dlata.copy(order='F'), dlona180.copy(order='F')  #np.flipud(np.transpose(dlata)),np.flipud(np.transpose(dlona))
+#
 def xyfll(dlat,dlon,d60,dgrw,nhem,lat0=60.0,verbose=False,radius=6.371e6):
 	dgtord=np.pi/np.float64(180.0)
 	a=np.float64(radius)  #6.371e6
@@ -62,4 +87,26 @@ def xyfll(dlat,dlon,d60,dgrw,nhem,lat0=60.0,verbose=False,radius=6.371e6):
 	if verbose: print "xyfll. x,y,dlat,dlon,d60,dgrw,nhem,lat0:",x,y,dlat,dlon,d60,dgrw,nhem,lat0
 	#
 	return [x,y]
-
+def getlalo(grib,geo,radius=6.371e6):
+	Ni=grib.Ni
+	Nj=grib.Nj
+	#
+	d60=geo.Dx
+	lat0=geo.LaD
+	dgrw=-geo.orientation-90.0
+	iPole=geo.iPole
+	jPole=geo.jPole
+	nhem=1
+	#
+	x=np.array(range(0,Ni))*d60+geo.xOrigin   #metric
+	y=np.array(range(0,Nj))*d60+geo.yOrigin
+	lats,lons=llfxya(x,y,1.0,dgrw,nhem,lat0=lat0,radius=radius)
+	xPole,yPole=xyfll(lats[0,0],lons[0,0],d60,dgrw,nhem,lat0=lat0,radius=geo.radius)
+	print "getlalo. checking ijPole.",-xPole+1,-yPole+1
+	#  check for fORTRAN ORDERING and enforce
+	if lats.flags.f_contiguous :
+		print "getlalo.  lat lon are Fortran ordered"
+		return lats,lons
+	else:
+		print "getlalo.  lat lon are not Fortran ordered...breaking"
+		quit()
