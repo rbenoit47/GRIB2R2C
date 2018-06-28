@@ -1,0 +1,8 @@
+#!/bin/bash
+F='./10km_res_coordinates_fromCMC.txt'
+grep '^1 1 ' $F
+grep '^935 1 ' $F
+grep '^1 824 ' $F
+grep '^935 824 ' $F
+
+

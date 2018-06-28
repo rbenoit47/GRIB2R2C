@@ -5,6 +5,7 @@ from eccodes import *
 import numpy as np
 import datetime as dtime
 import copy
+import matplotlib.pyplot as plt
 from llxy import *
 #
 def get_grib (gribname,interval,cropSpecs,LALO=False,verbose=False):
@@ -91,32 +92,36 @@ def get_grib (gribname,interval,cropSpecs,LALO=False,verbose=False):
 		quit()
 	#
 	#
-	if not LALO  :
-		# make it np array rightaway, with Fortran ordering. and go to 2D also
-		buf=np.reshape(np.array(codes_get_values(gid),order='F'),(grib.Nj,grib.Ni))
-	else:
+	# make it np array rightaway, with Fortran ordering. and go to 2D also
+	buf=np.reshape(np.array(codes_get_values(gid),order='F'),(grib.Nj,grib.Ni))
+	#
+	if LALO  :
 		print "getting lat-lon coordinates for grib array geography"
 		latarr,lonarr=getlalo(grib,geo)
 		if verbose:
-			print "LALO shapes",latarr.shape,lonarr.shape
+			print "LALO and buffer shapes",latarr.shape,lonarr.shape,buf.shape
 			print "grib Ni Nj:",grib.Ni,grib.Nj
 			print "LALO. min,max lat and lo:\n LA:",np.min(latarr),np.max(latarr),"\n LO:",np.min(lonarr),np.max(lonarr)
 			print "LALO. LL and TR corners:\n LL ",latarr[0,0],lonarr[0,0],"\n TR ",latarr[grib.Ni-1,grib.Nj-1],lonarr[grib.Ni-1,grib.Nj-1]
 			structPrint(geo,'geo')
-		buf=latarr.copy(order='F')
-		grib.parameterName='Latitudes'
-		grib.parameterUnits='degrees'
+		geo.lats=latarr   #.copy(order='F')
+		geo.lons=lonarr   #.copy(order='F')
+		geo.latlonUnits='degrees'
 	#
-	if verbose : print buf.size,buf.shape,grib.Ni,grib.Nj,grib.Ni*grib.Nj,grib.dataDate,grib.dataTime,grib.forecastTime
+	if verbose : 
+		print buf.size,buf.shape
+		structPrint(grib,'grib')
+	#		
 	#  cropping ...
 	if cropSpecs.crop :
-		print "get_grib.  cropping...",structPrint(cropSpecs,'cropSpecs')
+		print "get_grib.  cropping..."
+		structPrint(cropSpecs,'cropSpecs')
 		#
 		latc=cropSpecs.lat
 		lonc=cropSpecs.lon
 		width=cropSpecs.width
 		[xc,yc]=xyfll(latc,lonc,d60,dgrw,nhem,lat0=60.0,verbose=verbose,radius=geo.radius)  #coordinates with origin at Pole
-		print "xc,yc:",xc,yc
+		if verbose : print "xc,yc:",xc,yc
 		[dum1,dum2]=llfxy(xc,yc,d60,dgrw,nhem,lat0=60.0,verbose=verbose,radius=geo.radius)
 		ic=np.int(np.round(xc+geo.iPole))   #coordinates with origin at array low-left corner
 		jc=np.int(np.round(yc+geo.jPole))
@@ -130,11 +135,12 @@ def get_grib (gribname,interval,cropSpecs,LALO=False,verbose=False):
 		if verbose : print "latc,lonc,dum1,dum2,iwidth,ic,jc,i1,i2,j1,j2,x1crop,y1crop:\n",latc,lonc,dum1,dum2,iwidth,ic,jc,i1,j1,x1crop,y1crop
 		if verbose : print "lat lon of i1,j1 point:",llfxy(x1crop,y1crop,d60,dgrw,nhem,lat0=60.0,verbose=False,radius=6371229.0)
 		#
-		#cbuf,geocrop=crop_array(buf,i1,j1,iwidth,iwidth,yflip=True,verbose=True,geoIn=geo,cropSpecs=cropSpecs)
-		
-		#  crop(a,x1,y1,nx,ny)
 		cbuf=crop(buf,i1-1,j1-1,iwidth,iwidth)
-		
+		if LALO :
+			clats=crop(geo.lats,i1-1,j1-1,iwidth,iwidth)
+			clons=crop(geo.lons,i1-1,j1-1,iwidth,iwidth)
+			geo.lats=clats  #.copy(order='F')
+			geo.lons=clons  #.copy(order='F')
 		#
 		#  must adjust these in grib struct
 		#  Ni Nj iPole jPole xOrigin yOrigin
@@ -145,11 +151,11 @@ def get_grib (gribname,interval,cropSpecs,LALO=False,verbose=False):
 		# new values for x1 y1
 		x1=1-geo.iPole
 		y1=1-geo.iPole
-		geo.xOrigin=x1crop*d60  #x1*d60-d60/2.              # for the cell aspect we add the d60/2
+		geo.xOrigin=x1crop*d60   #x1*d60-d60/2.              # for the cell aspect we add the d60/2
 		geo.yOrigin=y1crop*d60   #(y1+grib.Nj-1)*d60+d60/2.  # top left corner, contrary to ensim doc that says bottom left
 		#
 		if verbose : 
-			print "cropSpecs to Ni,Nj,i/j NorthPole,x/yOrigin:",grib.Ni,grib.Nj,"\n geo for cropped array"
+			print "\n geo for cropped array"
 			structPrint(geo,'geo')
 		#
 		grib.values=cbuf
@@ -221,10 +227,10 @@ def put_r2c(grib,r2cFile,writername,FrameNumber=1,doHeader=True,verbose=False):
 	#
 	# for outputting the grib.values we'll use numpy.savetxt method
 	#  rather than the .write method
-	buf=np.copy(grib.values,order='F')
-	#[Ni,Nj]=np.shape(buf)
-	if verbose : print "dbg. Ni, Nj of grib data array, ordering: ",np.shape(buf), buf.flags.f_contiguous
-	nifmt=['%-7.2f'] * grib.Nj
+	# buf=np.copy(grib.values,order='F')
+	buf=grib.values.copy(order='F')
+	#
+	if verbose : print "put_r2c. shape of grib data array, Fortran-ordering: ",np.shape(buf), buf.flags.f_contiguous
 	#
 	# data cells ought to be written to the r2c file in the Fortran order
 	# i.e. for an 8x5 spatial array:
@@ -236,8 +242,16 @@ def put_r2c(grib,r2cFile,writername,FrameNumber=1,doHeader=True,verbose=False):
 	8 9 ...........
 	0 1 2 3 4 5 6 7
 	"""
-	#
-	np.savetxt(r2cFile,buf.transpose() , fmt=nifmt)
+	#  check Fortran-ordering and act accordingly
+	if buf.flags.f_contiguous :
+		if verbose : print "\nput_r2c.  Saving array to file\n"
+		nifmt=['%-7.2f'] * grib.Ni
+		np.savetxt(r2cFile,buf , fmt=nifmt)
+	else:
+		#
+		if verbose : print "\nput_r2c.  Had to transpose array before saving to file\n"
+		nifmt=['%-7.2f'] * grib.Nj
+		np.savetxt(r2cFile,buf.transpose() , fmt=nifmt)
 	#
 	r2cFile.write(":EndFrame\n")
 	#
@@ -273,11 +287,7 @@ def r2c_header(grib,r2cFile,writername,verbose=False):
 	nhem=1
 	CentreLongitude = grib.geo.orientation
 	dgrw=- CentreLongitude - 90.
-	print "lat lon of x/yOrigin:",llfxy(xOrigin,yOrigin,d60,dgrw,nhem,lat0=60.0,verbose=False,radius=6371229.0)
-	
-	
-	
-	
+	if verbose : print "lat lon of x/yOrigin:",llfxy(xOrigin,yOrigin,d60,dgrw,nhem,lat0=60.0,verbose=False,radius=grib.geo.radius)
 	#
 	r2cFile.write("############################################################################\n")
 	r2cFile.write(":FileType r2c  ASCII  EnSim 1.0\n")
@@ -314,4 +324,24 @@ def r2c_header(grib,r2cFile,writername,verbose=False):
 	if verbose : print "r2c file:",r2cFile.name," Header produced" 
 	ok=True
 	return ok
+#
+# 		grib_plot_it(grib)
+def grib_plot_it(grib,trace=[]):
+	buf=grib.values	
+	if trace :
+		imiss=np.argwhere(buf <= trace)
+		buf[imiss[:,0],imiss[:,1]]=np.nan
+	# convert 9999.0 to NaN
+	imiss=np.argwhere(buf == 9999.0)
+	# print "len miss:",imiss.shape
+	buf[imiss[:,0],imiss[:,1]]=np.nan
+	#
+	plt.contourf(buf)   #,colors='k')
+	plt.colorbar()
+	# 	dataDatef=str(grib.dataDate)
+	#   dataTimef=str(grib.dataTime)
+	plt.title(grib.var+" at "+str(grib.dataDate)+" "+str(grib.dataTime)+"+"+str(grib.forecastTime))
+	plt.savefig(grib.var+".png")
+	plt.show()
+
 

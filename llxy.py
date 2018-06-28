@@ -100,9 +100,13 @@ def getlalo(grib,geo,radius=6.371e6):
 	#
 	x=np.array(range(0,Ni))*d60+geo.xOrigin   #metric
 	y=np.array(range(0,Nj))*d60+geo.yOrigin
-	lats,lons=llfxya(x,y,1.0,dgrw,nhem,lat0=lat0,radius=radius)
+	lats,lons=llfxya(x,y,1.0,dgrw,nhem,lat0=lat0,radius=geo.radius)
 	xPole,yPole=xyfll(lats[0,0],lons[0,0],d60,dgrw,nhem,lat0=lat0,radius=geo.radius)
 	print "getlalo. checking ijPole.",-xPole+1,-yPole+1
+	print "getlalo. Print 4 corners\ni j lon lon360 lat\n"
+	for i in [0,Ni-1]:
+		for j in [0,Nj-1]:
+			print i,j,lons[i,j],np.fmod(360.0+lons[i,j],360.),lats[i,j]
 	#  check for fORTRAN ORDERING and enforce
 	if lats.flags.f_contiguous :
 		print "getlalo.  lat lon are Fortran ordered"
