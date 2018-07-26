@@ -200,10 +200,27 @@ def structCopy(a):
 #
 def structPrint(a,namea):
 	adict=a.__dict__
-	print "\n"
 	for key in adict:
-		print namea+'.'+str(key)+':  ',adict[key]
-	return	
+		tk=str(type(adict[key]))
+		if 'class' not in tk:
+			print namea+'.'+str(key)+':  ',adict[key]
+		else:
+			structPrint(adict[key],namea+'.'+str(key))
+	return
+def structTest():
+	a=structObj()
+	b=structObj()
+	c=structObj()
+	a.i=1
+	a.x=1.1
+	b.j=-3
+	b.y=2.7
+	c.k=-10000
+	c.z=1.4142
+	b.c=c
+	a.b=b
+	structPrint(a,'a')
+#
 def put_r2c(grib,r2cFile,writername,FrameNumber=1,doHeader=True,verbose=False):
 	ok=False
 	#
